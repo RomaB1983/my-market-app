@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest(classes = CartService.class,
-        webEnvironment = SpringBootTest.WebEnvironment.NONE)
+        webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 class CartServiceTest {
 
     @MockitoBean
@@ -124,10 +124,8 @@ class CartServiceTest {
         when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
         when(itemRepository.findById(2L)).thenReturn(Optional.of(item));
 
-
         cartService.addToCart(1L, 2);  // 2 × 100 = 200
         cartService.addToCart(2L, 3);  // 3 × 100 = 300
-
 
         long total = cartService.getTotalPrice();
         assertThat(total).isEqualTo(500L);

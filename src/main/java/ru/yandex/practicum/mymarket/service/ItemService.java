@@ -1,14 +1,14 @@
 package ru.yandex.practicum.mymarket.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.mymarket.dto.ItemDto;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.repository.ItemRepository;
 
-import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -17,34 +17,33 @@ public class ItemService {
     private final ItemRepository itemRepository;
     private final CartService cartService;
 
+    @Transactional(readOnly = true)
+    public Page<ItemDto> getAllItems(String search, String sort, int pageNumber, int pageSize) {
+        Sort sortOrder = Sort.unsorted();
+        if ("ALPHA".equals(sort)) {
+            sortOrder = Sort.by(Sort.Direction.ASC, "title");
+        } else if ("PRICE".equals(sort)) {
+            sortOrder = Sort.by(Sort.Direction.ASC, "price");
+        }
+        Pageable pageable = PageRequest.of(pageNumber - 1, pageSize, sortOrder);
 
-    public List<ItemDto> getAllItems(String search, String sort, int pageNumber, int pageSize) {
-        List<Item> items;
+        Page<Item> items;
 
         // Поиск по названию/описанию
         if (search != null && !search.isEmpty()) {
-            items = itemRepository.findByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCase(search, search);
+            items = itemRepository.findByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCase(search, search, pageable);
         } else {
-            items = itemRepository.findAll();
+            items = itemRepository.findAll(pageable);
         }
 
-        // Сортировка
-        switch (sort) {
-            case "ALPHA" -> items.sort((a, b) -> a.getTitle().compareToIgnoreCase(b.getTitle()));
-            case "PRICE" -> items.sort(Comparator.comparingLong(Item::getPrice));
-            default -> {} // NO sorting
-        }
-
-        // Пагинация
-        int start = (pageNumber - 1) * pageSize;
-        int end = Math.min(start + pageSize, items.size());
-        List<Item> paginatedItems = items.subList(Math.max(0, start), end);
-
-        return paginatedItems.stream()
+        List<ItemDto> dtoList = items.getContent().stream()
                 .map(this::toDto)
-                .collect(Collectors.toList());
+                .toList();
+
+        return new PageImpl<>(dtoList, items.getPageable(), items.getTotalElements());
     }
 
+    @Transactional(readOnly = true)
     public ItemDto getItemById(Long id) {
         Item item = itemRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Item not found"));

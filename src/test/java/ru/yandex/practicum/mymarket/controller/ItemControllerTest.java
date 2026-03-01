@@ -3,6 +3,7 @@ package ru.yandex.practicum.mymarket.controller;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.yandex.practicum.mymarket.dto.ItemDto;
@@ -45,7 +46,7 @@ class ItemControllerTest {
                 createItemDto(2L, "Товар 2"),
                 createItemDto(3L, "Товар 3")
         );
-        when(itemService.getAllItems("", "NO", 1, 5)).thenReturn(items);
+        when(itemService.getAllItems("", "NO", 1, 5)).thenReturn(new PageImpl<>(items));
 
         mockMvc.perform(get("/items")
                         .param("search","")
@@ -142,8 +143,8 @@ class ItemControllerTest {
 
     @Test
     void showItems_withSearchAndSort_shouldPassToService() throws Exception {
-        List<ItemDto> items = Arrays.asList(createItemDto(1L, "Найденный товар"));
-        when(itemService.getAllItems("test", "PRICE", 1, 5)).thenReturn(items);
+        List<ItemDto> items = List.of(createItemDto(1L, "Найденный товар"));
+        when(itemService.getAllItems("test", "PRICE", 1, 5)).thenReturn(new PageImpl<>(items));
 
         mockMvc.perform(get("/items")
                         .param("search", "test")
