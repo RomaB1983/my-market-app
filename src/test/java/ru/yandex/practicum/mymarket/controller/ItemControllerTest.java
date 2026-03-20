@@ -1,28 +1,34 @@
 package ru.yandex.practicum.mymarket.controller;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.data.domain.PageImpl;
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.*;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.dto.ItemDto;
+import ru.yandex.practicum.mymarket.dto.Params;
+import ru.yandex.practicum.mymarket.repository.CartItemRepository;
+import ru.yandex.practicum.mymarket.repository.ItemRepository;
+import ru.yandex.practicum.mymarket.repository.OrderItemRepository;
+import ru.yandex.practicum.mymarket.repository.OrderRepository;
 import ru.yandex.practicum.mymarket.service.CartService;
 import ru.yandex.practicum.mymarket.service.ItemService;
 
-import java.util.Arrays;
 import java.util.List;
 
-import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(ItemController.class)
+@WebFluxTest(ItemController.class)
 class ItemControllerTest {
 
     @Autowired
-    private MockMvc mockMvc;
+    private WebTestClient webTestClient;
 
     @MockitoBean
     private ItemService itemService;
@@ -30,127 +36,139 @@ class ItemControllerTest {
     @MockitoBean
     private CartService cartService;
 
-    // Вспомогательный метод для создания ItemDto
-    private ItemDto createItemDto(Long id, String name) {
-        ItemDto dto = new ItemDto();
-        dto.setId(id);
-        dto.setTitle(name);
-        dto.setPrice(100L);
-        return dto;
+    @MockitoBean
+    private OrderItemRepository orderItemRepository;
+
+    @MockitoBean
+    private ItemRepository itemRepository;
+
+    @MockitoBean
+    private OrderRepository orderRepository;
+
+    @MockitoBean
+    private CartItemRepository cartItemRepository;
+
+    private final ItemDto item1 = new ItemDto(1L, "Товар 1", "Описание 1", "_", 100L, 2);
+    private final ItemDto item2 = new ItemDto(2L, "Товар 2", "Описание 2", "_", 200L, 3);
+    private final ItemDto item3 = new ItemDto(3L, "Товар 3", "Описание 3", "_", 150L, 1);
+
+    @Test
+    void test_getAllItems_DefaultParams() {
+        List<ItemDto> items = List.of(item1, item2, item3);
+        Pageable pageable = PageRequest.of(0, 5, Sort.unsorted());
+        Page<ItemDto> page = new PageImpl<>(items, pageable, items.size());
+
+        when(itemService.getAllItems(isNull(), eq("NO"), eq(1), eq(5), anyString()))
+                .thenReturn(Mono.just(page));
+        webTestClient.get()
+                .uri("/items")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .value(html -> {
+                    Assertions.assertTrue(html.contains("Товар 1"), "HTML должен содержать товар 1");
+                    Assertions.assertTrue(html.contains("Товар 2"), "HTML должен содержать товар 2");
+                    Assertions.assertTrue(html.contains("Товар 3"), "HTML должен содержать товар 3");
+                });
+
+        verify(itemService, times(1)).getAllItems(isNull(), eq("NO"), eq(1), eq(5), anyString());
     }
 
     @Test
-    void showItems_shouldReturnItemsViewAndPopulateModel() throws Exception {
-        List<ItemDto> items = Arrays.asList(
-                createItemDto(1L, "Товар 1"),
-                createItemDto(2L, "Товар 2"),
-                createItemDto(3L, "Товар 3")
-        );
-        when(itemService.getAllItems("", "NO", 1, 5)).thenReturn(new PageImpl<>(items));
+    void test_getAllItems_WithSearchAndSort() {
+        List<ItemDto> items = List.of(item1);
+        Pageable pageable = PageRequest.of(1, 10, Sort.unsorted());
+        Page<ItemDto> page = new PageImpl<>(items, pageable, items.size());
 
-        mockMvc.perform(get("/items")
-                        .param("search","")
-                        .param("sort","NO")
-                        .param("pageNumber","1")
-                        .param("pageSize","5"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("items"))
-                .andExpect(model().attribute("search", ""))
-                .andExpect(model().attribute("items", hasSize(1)))
-                .andExpect(model().attribute("sort", "NO"))
-                .andExpect(model().attributeExists("paging"));
+        when(itemService.getAllItems(eq("товар"), eq("PRICE"), eq(2), eq(10), anyString()))
+                .thenReturn(Mono.just(page));
+        webTestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/items")
+                        .queryParam("search", "товар")
+                        .queryParam("sort", "PRICE")
+                        .queryParam("pageNumber", "2")
+                        .queryParam("pageSize", "10")
+                        .build())
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(html -> {
+                    Assertions.assertTrue(html.contains("Товар 1"));
+                    Assertions.assertTrue(html.contains("name=\"search\" value=\"товар\""));
+                    Assertions.assertTrue(html.contains("name=\"sort\" value=\"PRICE\""));
+                });
 
-        verify(itemService).getAllItems("", "NO", 1, 5);
+        verify(itemService).getAllItems(eq("товар"), eq("PRICE"), eq(2), eq(10), anyString());
     }
 
     @Test
-    void showItem_shouldReturnItemView() throws Exception {
-        ItemDto item = createItemDto(1L, "Товар 1");
-        when(itemService.getItemById(1L)).thenReturn(item);
-        when(cartService.getItemCount(1L)).thenReturn(2);
+    void test_getItem_Success() {
+        when(itemService.getItemById(anyString(), eq(1L)))
+                .thenReturn(Mono.just(item1));
+        webTestClient.get()
+                .uri("/items/1")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .value(html -> {
+                    Assertions.assertTrue(html.contains("Товар 1"));
+                    Assertions.assertTrue(html.contains("Описание 1"));
+                    Assertions.assertTrue(html.contains("100"));
+                });
 
-        mockMvc.perform(get("/items/1"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("item"))
-                .andExpect(model().attribute("item", item));
-
-        verify(itemService).getItemById(1L);
-        verify(cartService).getItemCount(1L);
+        verify(itemService).getItemById(anyString(), eq(1L));
     }
 
     @Test
-    void updateCart_plusAction_shouldAddToCartAndRedirect() throws Exception {
-        mockMvc.perform(post("/items")
-                        .param("id", "1")
-                        .param("action", "PLUS")
-                        .param("search", "test")
-                        .param("sort", "PRICE")
-                        .param("pageNumber", "2")
-                        .param("pageSize", "10"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/items?search=test&sort=PRICE&pageNumber=2&pageSize=10"));
+    void test_updateCart_Success() {
+        Params params = new Params();
+        params.setId(1L);
+        params.setAction("PLUS");
+        params.setSearch("товар");
+        params.setSort("PRICE");
+        params.setPageNumber(2);
+        params.setPageSize(10);
 
-        verify(cartService).addToCart(1L, 1);
+        when(cartService.updateQuantity(anyString(), eq(1L), eq("PLUS")))
+                .thenReturn(Mono.empty());
+        webTestClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/items")
+                        .queryParam("id", "1")
+                        .queryParam("search", "товар")
+                        .queryParam("sort", "PRICE")
+                        .queryParam("pageNumber", "2")
+                        .queryParam("pageSize", "10")
+                        .queryParam("action", "PLUS")
+                        .build())
+                .exchange()
+                .expectStatus().isSeeOther()
+                .expectHeader().location("/items?search=%D1%82%D0%BE%D0%B2%D0%B0%D1%80&sort=PRICE&pageNumber=2&pageSize=10");
+
+        verify(cartService).updateQuantity(anyString(), eq(1L), eq("PLUS"));
     }
 
     @Test
-    void updateCart_minusAction_shouldUpdateQuantityAndRedirect() throws Exception {
-        when(cartService.getItemCount(1L)).thenReturn(3);
+    void test_updateCartItem_Success() {
+        Params params = new Params();
+        params.setId(2L);
+        params.setAction("MINUS");
 
-        mockMvc.perform(post("/items")
-                        .param("id", "1")
-                        .param("action", "MINUS")
-                        .param("search", "")
-                        .param("sort", "NO")
-                        .param("pageNumber", "1")
-                        .param("pageSize", "5"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/items?search=&sort=NO&pageNumber=1&pageSize=5"));
+        when(cartService.updateQuantity(anyString(), eq(2L), eq("MINUS")))
+                .thenReturn(Mono.empty());
+        webTestClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/items")
+                        .queryParam("id", "2")
+                        .queryParam("action", "MINUS")
+                        .build())
+                .exchange()
 
+                .expectStatus().isSeeOther();
 
-        verify(cartService).updateQuantity(1L, 2);
-    }
-
-    @Test
-    void updateItemCart_plusAction_shouldAddToCartAndReturnItemView() throws Exception {
-        ItemDto item = createItemDto(1L, "Товар 1");
-        when(itemService.getItemById(1L)).thenReturn(item);
-        when(cartService.getItemCount(1L)).thenReturn(1);
-
-        mockMvc.perform(post("/items/1")
-                        .param("action", "PLUS"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("item"))
-                .andExpect(model().attribute("item", item));
-
-        verify(cartService).addToCart(1L, 1);
-    }
-
-    @Test
-    void updateItemCart_minusAction_shouldDecreaseQuantityAndReturnItemView() throws Exception {
-        ItemDto item = createItemDto(1L, "Товар 1");
-        when(itemService.getItemById(1L)).thenReturn(item);
-        when(cartService.getItemCount(1L)).thenReturn(2);
-
-        mockMvc.perform(post("/items/1")
-                        .param("action", "MINUS"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("item"))
-                .andExpect(model().attribute("item", item));
-
-        verify(cartService).updateQuantity(1L, 1);
-    }
-
-    @Test
-    void showItems_withSearchAndSort_shouldPassToService() throws Exception {
-        List<ItemDto> items = List.of(createItemDto(1L, "Найденный товар"));
-        when(itemService.getAllItems("test", "PRICE", 1, 5)).thenReturn(new PageImpl<>(items));
-
-        mockMvc.perform(get("/items")
-                        .param("search", "test")
-                        .param("sort", "PRICE"))
-                .andExpect(status().isOk());
-
-        verify(itemService).getAllItems("test", "PRICE", 1, 5);
+        verify(cartService).updateQuantity(anyString(), eq(2L), eq("MINUS"));
     }
 }

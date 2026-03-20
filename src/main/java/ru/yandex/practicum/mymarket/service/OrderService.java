@@ -3,80 +3,101 @@ package ru.yandex.practicum.mymarket.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.dto.ItemDto;
 import ru.yandex.practicum.mymarket.dto.OrderDto;
-import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.model.Order;
 import ru.yandex.practicum.mymarket.model.OrderItem;
+import ru.yandex.practicum.mymarket.repository.OrderItemRepository;
 import ru.yandex.practicum.mymarket.repository.OrderRepository;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
     private final CartService cartService;
+    private final ItemService itemService;
 
     @Transactional
-    public OrderDto createOrder() {
-        List<ItemDto> cartItems = cartService.getCartItems();
-        if (cartItems.isEmpty()) {
-            throw new RuntimeException("Cart is empty");
-        }
+    public Mono<OrderDto> createOrder(String sessionId) {
+        return cartService.getCartItems(sessionId)
+                .flatMap(cartItems -> {
+                    if (cartItems.isEmpty()) {
+                        return Mono.error(new RuntimeException("Cart is empty"));
+                    }
 
-        Order order = new Order();
-        order.setItems(cartItems.stream()
-                .map(itemDto -> {
-                    OrderItem orderItem = new OrderItem();
-                    Item item = new Item();
-                    item.setId(itemDto.getId());
-                    item.setTitle(itemDto.getTitle());
-                    orderItem.setItem(item);
-                    // orderItem.setId(itemDto.getId());
-                    orderItem.setPrice(itemDto.getPrice());
-                    orderItem.setCount(itemDto.getCount());
-                    orderItem.setPrice(itemDto.getPrice());
-                    return orderItem;
-                })
-                .collect(Collectors.toList()));
-        order.setTotalSum(cartService.getTotalPrice());
+                    long totalSum = 0;
+                    List<OrderItem> orderItems = new ArrayList<>();
 
-        Order savedOrder = orderRepository.save(order);
+                    for (ItemDto item : cartItems) {
+                        OrderItem orderItem = new OrderItem();
+                        orderItem.setItemId(item.getId());
+                        orderItem.setCount(item.getCount());
+                        orderItem.setPrice(item.getPrice());
 
-        // Очищаем корзину после оформления заказа
-        cartService.getCartItems().forEach(item -> cartService.removeFromCart(item.getId()));
+                        totalSum += item.getPrice() * item.getCount();
+                        orderItems.add(orderItem);
+                    }
 
-        return toDto(savedOrder);
+                    Order order = new Order();
+                    order.setSessionId(sessionId);
+                    order.setItems(orderItems);
+                    order.setTotalSum(totalSum);
+
+                    return orderRepository.save(order)
+                            .flatMap(savedOrder -> {
+                                List<OrderItem> itemsWithOrderId = savedOrder.getItems().stream()
+                                        .peek(item -> item.setOrderId(savedOrder.getId()))
+                                        .toList();
+
+                                return orderItemRepository.saveAll(itemsWithOrderId)
+                                        .collectList()
+                                        .thenReturn(savedOrder);
+                            })
+                            .map(savedOrder -> toDto(savedOrder, cartItems))
+                            .flatMap(dto -> {
+                                return Flux.fromIterable(cartItems)
+                                        .flatMap(item -> cartService.removeItem(sessionId, item.getId()))
+                                        .then(Mono.just(dto));
+                            });
+                });
     }
 
-    public List<OrderDto> getAllOrders() {
-        return orderRepository.findAll().stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
+    public Mono<List<OrderDto>> getAllOrders(String sessionId) {
+        return orderRepository.findBySessionId(sessionId)
+                .flatMap(order -> getItems(order.getId())
+                        .map(items -> toDto(order, items)))
+                .collectList();
     }
 
-    public OrderDto getOrderById(Long id) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
-        return toDto(order);
+    public Mono<OrderDto> getOrderById(String sessionId, Long id) {
+        return orderRepository.findByIdAndSessionId(id, sessionId)
+                .flatMap(order -> getItems(order.getId())
+                        .map(items -> toDto(order, items)));
     }
 
-    protected OrderDto toDto(Order order) {
+    Mono<List<ItemDto>> getItems(Long orderId) {
+        return orderItemRepository.findByOrderId(orderId)
+                .flatMap(orderItem ->
+                        itemService.getItemByIdForOrder(orderItem.getItemId())
+                                .map(itemDto -> {
+                                    itemDto.setCount(orderItem.getCount());
+                                    return itemDto;
+                                })
+                )
+                .collectList();
+    }
+
+    protected OrderDto toDto(Order order, List<ItemDto> items) {
         OrderDto dto = new OrderDto();
         dto.setId(order.getId());
-        dto.setItems(order.getItems().stream()
-                .map(item -> {
-                    ItemDto itemDto = new ItemDto();
-                    itemDto.setId(item.getItem().getId());
-                    itemDto.setTitle(item.getItem().getTitle());
-                    itemDto.setPrice(item.getItem().getPrice());
-                    itemDto.setCount(item.getCount());
-                    return itemDto;
-                })
-                .collect(Collectors.toList()));
+        dto.setItems(items);
         dto.setTotalSum(order.getTotalSum());
         return dto;
     }

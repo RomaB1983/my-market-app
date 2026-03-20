@@ -2,90 +2,79 @@ package ru.yandex.practicum.mymarket.controller;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.dto.ItemDto;
+import ru.yandex.practicum.mymarket.repository.CartItemRepository;
+import ru.yandex.practicum.mymarket.repository.ItemRepository;
+import ru.yandex.practicum.mymarket.repository.OrderItemRepository;
+import ru.yandex.practicum.mymarket.repository.OrderRepository;
 import ru.yandex.practicum.mymarket.service.CartService;
-
 import java.util.List;
 
-import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(CartController.class)
+
+@WebFluxTest(CartController.class)
 class CartControllerTest {
-
     @Autowired
-    private MockMvc mockMvc;
+    private WebTestClient webTestClient;
+
+    @MockitoBean
+    private OrderItemRepository orderItemRepository;
+
+    @MockitoBean
+    private ItemRepository itemRepository;
+
+    @MockitoBean
+    private OrderRepository orderRepository;
+
+    @MockitoBean
+    private CartItemRepository cartItemRepository;
 
     @MockitoBean
     private CartService cartService;
 
     @Test
-    void showCart_shouldReturnCartViewAndPopulateModel() throws Exception {
-        when(cartService.getCartItems()).thenReturn(List.of(
-                new ItemDto(1L, "Товар 1", "Товар 1", "_", 2L, 2)
-        ));
-        when(cartService.getTotalPrice()).thenReturn(4L);
+    void test_getCartItems_Success() throws Exception {
+        List<ItemDto> mockItems = List.of(
+                new ItemDto(1L, "Товар 1", "Товар 1", "_", 100L, 2)
+        );
 
-        mockMvc.perform(get("/cart/items"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("cart"))
-                .andExpect(model().attribute("items", hasSize(1)))
-                .andExpect(model().attribute("total", 4L));
+        when(cartService.getCartItems(anyString()))
+                .thenReturn(Mono.just(mockItems));
 
-        verify(cartService).getCartItems();
-        verify(cartService).getTotalPrice();
+        webTestClient.get()
+                .uri("/cart/items")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_HTML)
+                .expectBody(String.class)
+                .value(html -> {
+                    assert html.contains(" <h5 class=\"card-title\">Товар 1</h5>");
+                    assert html.contains("<h2>Итого: 200 руб.</h2>");
+                    assert html.contains("100 руб.");
+                });
     }
 
     @Test
-    void updateItemCart_plusAction_shouldAddOneToQuantity() throws Exception {
-        mockMvc.perform(post("/cart/items")
-                        .param("id", "1")
-                        .param("action", "PLUS"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("cart"));
+    void test_updateItemCart_Success() throws Exception {
+        when(cartService.updateQuantity(anyString(), anyLong(), eq("PLUS")))
+                .thenReturn(Mono.empty());
 
-        verify(cartService).addToCart(1L, 1);
-    }
+        webTestClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/cart/items")
+                        .queryParam("action", "PLUS")
+                        .queryParam("id", "1")
+                        .build())
+                .exchange()
+                .expectStatus().isSeeOther()
+                .expectHeader().location("/cart/items");
 
-    @Test
-    void updateItemCart_minusAction_shouldDecreaseQuantity() throws Exception {
-        when(cartService.getItemCount(1L)).thenReturn(3);
-
-        mockMvc.perform(post("/cart/items")
-                        .param("id", "1")
-                        .param("action", "MINUS"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("cart"));
-
-        verify(cartService).updateQuantity(1L, 2);
-    }
-
-    @Test
-    void updateItemCart_deleteAction_shouldSetQuantityToZero() throws Exception {
-        when(cartService.getItemCount(1L)).thenReturn(3);
-
-        mockMvc.perform(post("/cart/items")
-                        .param("id", "1")
-                        .param("action", "DELETE"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("cart"));
-
-        verify(cartService).updateQuantity(1L, 0);
-    }
-
-    @Test
-    void updateItemCart_invalidAction_shouldDoNothing() throws Exception {
-        mockMvc.perform(post("/cart/items")
-                        .param("id", "1")
-                        .param("action", "UNKNOWN"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("cart"));
-
-        verify(cartService, never()).updateQuantity(anyLong(), anyInt());
+        verify(cartService, times(1)).updateQuantity(anyString(), eq(1L), eq("PLUS"));
     }
 }

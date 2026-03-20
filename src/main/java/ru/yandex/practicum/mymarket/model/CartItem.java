@@ -2,20 +2,17 @@ package ru.yandex.practicum.mymarket.model;
 
 import lombok.*;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.Transient;
 import org.springframework.data.relational.core.mapping.Table;
 
-import java.util.List;
-
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "ORDERS")
-public class Order {
+@AllArgsConstructor
+@Table(name = "CART_ITEMS")
+
+public class CartItem {
     @Id
     private Long id;
-    @Transient
-    private List<OrderItem> items;
-    private Long totalSum;
     private String sessionId;
+    private Integer quantity;
+    private Long itemId;
 }
