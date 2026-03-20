@@ -1,144 +1,317 @@
 package ru.yandex.practicum.mymarket.service;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.dto.ItemDto;
+import ru.yandex.practicum.mymarket.model.CartItem;
 import ru.yandex.practicum.mymarket.model.Item;
+import ru.yandex.practicum.mymarket.repository.CartItemRepository;
 import ru.yandex.practicum.mymarket.repository.ItemRepository;
 
 import java.util.List;
-import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@SpringBootTest(classes = CartService.class,
-        webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@SpringBootTest
 class CartServiceTest {
-
-    @MockitoBean
-    private ItemRepository itemRepository;
 
     @Autowired
     private CartService cartService;
 
-    private Item item;
+    @MockitoBean
+    private ItemRepository itemRepository;
 
-    @BeforeEach
-    void setUp() {
+    @MockitoBean
+    private CartItemRepository cartItemRepository;
 
-        item = new Item();
-        item.setId(1L);
-        item.setTitle("Тест‑товар");
-        item.setDescription("Описание");
-        item.setImgPath("/image/1.jpg");
-        item.setPrice(100L);
+    private static final String SESSION_ID = "test-session";
 
+    private final Item item1 = new Item(1L, "Товар 1", "Описание 1", "_", 100L);
+    private final Item item2 = new Item(2L, "Товар 2", "Описание 2", "_", 200L);
+    private final CartItem cartItem1 = new CartItem();
+    private final CartItem cartItem2 = new CartItem();
 
-        ItemDto itemDto = new ItemDto();
-        itemDto.setId(1L);
-        itemDto.setTitle("Тест‑товар");
-        itemDto.setPrice(100L);
-        cartService.clearCart();
+    {
+        cartItem1.setId(1L);
+        cartItem1.setSessionId(SESSION_ID);
+        cartItem1.setItemId(1L);
+        cartItem1.setQuantity(2);
+
+        cartItem2.setId(2L);
+        cartItem2.setSessionId(SESSION_ID);
+        cartItem2.setItemId(2L);
+        cartItem2.setQuantity(1);
+    }
+
+    private final ItemDto itemDto1 = new ItemDto(1L, "Товар 1", "Описание 1", "_", 100L, 2);
+    private final ItemDto itemDto2 = new ItemDto(2L, "Товар 2", "Описание 2", "_", 200L, 1);
+
+    @Test
+    void test_getCartItems_Success() {
+        when(cartItemRepository.findBySessionId(eq(SESSION_ID)))
+                .thenReturn(Mono.just(cartItem1).concatWith(Mono.just(cartItem2)));
+        when(itemRepository.findById(eq(1L)))
+                .thenReturn(Mono.just(item1));
+        when(itemRepository.findById(eq(2L)))
+                .thenReturn(Mono.just(item2));
+
+        Mono<List<ItemDto>> result = cartService.getCartItems(SESSION_ID);
+
+        StepVerifier.create(result)
+                .assertNext(items -> {
+                    assertThat(items).hasSize(2);
+                    assertThat(items.get(0).getId()).isEqualTo(1L);
+                    assertThat(items.get(0).getCount()).isEqualTo(2);
+                    assertThat(items.get(1).getId()).isEqualTo(2L);
+                    assertThat(items.get(1).getCount()).isEqualTo(1);
+                })
+                .verifyComplete();
+
+        verify(cartItemRepository, times(1)).findBySessionId(SESSION_ID);
+        verify(itemRepository, times(2)).findById(anyLong());
     }
 
     @Test
-    void addToCart_shouldAddNewItem() {
-        cartService.addToCart(1L, 2);
-        assertThat(cartService.getItemCount(1L)).isEqualTo(2);
+    void test_getCartItems_EmptyCart() {
+        when(cartItemRepository.findBySessionId(eq(SESSION_ID)))
+                .thenReturn(Flux.empty());
+
+        Mono<List<ItemDto>> result = cartService.getCartItems(SESSION_ID);
+
+        StepVerifier.create(result)
+                .assertNext(items -> {
+                    assertThat(items).isEmpty();
+                })
+                .verifyComplete();
+
+        verify(cartItemRepository, times(1)).findBySessionId(SESSION_ID);
+        verify(itemRepository, never()).findById(anyLong());
     }
 
     @Test
-    void addToCart_shouldAccumulateQuantity() {
-        cartService.addToCart(1L, 2);
-        cartService.addToCart(1L, 3);
+    void test_modifyItem_AddNewItem() {
+        when(cartItemRepository.findBySessionIdAndItemId(eq(SESSION_ID), eq(1L)))
+                .thenReturn(Mono.empty());
+        when(itemRepository.findById(eq(1L)))
+                .thenReturn(Mono.just(item1));
+        when(cartItemRepository.save(any(CartItem.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        assertThat(cartService.getItemCount(1L)).isEqualTo(5);
+        Mono<Void> result = cartService.modifyItem(SESSION_ID, 1L, 3);
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(cartItemRepository, times(1))
+                .findBySessionIdAndItemId(SESSION_ID, 1L);
+        verify(itemRepository, times(1)).findById(1L);
+        verify(cartItemRepository, times(1)).save(argThat(cartItem ->
+                cartItem.getSessionId().equals(SESSION_ID) &&
+                        cartItem.getItemId().equals(1L) &&
+                        cartItem.getQuantity() == 3
+        ));
     }
 
     @Test
-    void removeFromCart_shouldRemoveItem() {
-        cartService.addToCart(1L, 5);
-        cartService.removeFromCart(1L);
+    void test_modifyItem_UpdateExistingItem() {
+        when(cartItemRepository.findBySessionIdAndItemId(eq(SESSION_ID), eq(1L)))
+                .thenReturn(Mono.just(cartItem1));
+        when(cartItemRepository.save(eq(cartItem1)))
+                .thenReturn(Mono.just(cartItem1));
 
-        assertThat(cartService.getItemCount(1L)).isZero();
+        Mono<Void> result = cartService.modifyItem(SESSION_ID, 1L, 2);
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        assertThat(cartItem1.getQuantity()).isEqualTo(4);
+        verify(cartItemRepository, times(1))
+                .findBySessionIdAndItemId(SESSION_ID, 1L);
+        verify(cartItemRepository, times(1)).save(cartItem1);
     }
 
     @Test
-    void updateQuantity_shouldSetNewQuantity() {
-        cartService.addToCart(1L, 2);
-        cartService.updateQuantity(1L, 7);
+    void test_modifyItem_RemoveItemWhenQuantityZero() {
+        when(cartItemRepository.findBySessionIdAndItemId(eq(SESSION_ID), eq(1L)))
+                .thenReturn(Mono.just(cartItem1));
+        when(cartItemRepository.delete(eq(cartItem1)))
+                .thenReturn(Mono.empty());
 
-        assertThat(cartService.getItemCount(1L)).isEqualTo(7);
+        Mono<Void> result = cartService.modifyItem(SESSION_ID, 1L, -2);
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(cartItemRepository, times(1))
+                .findBySessionIdAndItemId(SESSION_ID, 1L);
+        verify(cartItemRepository, times(1)).delete(cartItem1);
+        verify(cartItemRepository, never()).save(any());
     }
 
     @Test
-    void updateQuantity_withZeroOrNegative_shouldRemoveItem() {
-        cartService.addToCart(1L, 5);
+    void test_removeItem_Success() {
+        when(cartItemRepository.findBySessionIdAndItemId(eq(SESSION_ID), eq(1L)))
+                .thenReturn(Mono.just(cartItem1));
+        when(cartItemRepository.delete(eq(cartItem1)))
+                .thenReturn(Mono.empty());
 
-        cartService.updateQuantity(1L, 0);
-        assertThat(cartService.getItemCount(1L)).isZero();
+        Mono<Void> result = cartService.removeItem(SESSION_ID, 1L);
 
-        cartService.addToCart(1L, 3);
-        cartService.updateQuantity(1L, -1);
-        assertThat(cartService.getItemCount(1L)).isZero();
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(cartItemRepository, times(1))
+                .findBySessionIdAndItemId(SESSION_ID, 1L);
+        verify(cartItemRepository, times(1)).delete(cartItem1);
     }
 
     @Test
-    void getCartItems_shouldReturnDtoWithCount() {
-        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
-        cartService.addToCart(1L, 4);
+    void test_updateQuantity_Plus() {
+        when(cartItemRepository.findBySessionIdAndItemId(eq(SESSION_ID), eq(1L)))
+                .thenReturn(Mono.just(cartItem1));
+        when(cartItemRepository.save(eq(cartItem1)))
+                .thenReturn(Mono.just(cartItem1));
 
-        List<ItemDto> cartItems = cartService.getCartItems();
+        Mono<Void> result = cartService.updateQuantity(SESSION_ID, 1L, "PLUS");
 
-        assertThat(cartItems).hasSize(1);
+        StepVerifier.create(result)
+                .verifyComplete();
 
-        ItemDto result = cartItems.getFirst();
-        assertThat(result.getId()).isEqualTo(1L);
-        assertThat(result.getCount()).isEqualTo(4);
-        assertThat(result.getPrice()).isEqualTo(100L);
+        verify(cartItemRepository, times(1))
+                .findBySessionIdAndItemId(SESSION_ID, 1L);
+        verify(cartItemRepository, times(1)).save(cartItem1);
     }
 
     @Test
-    void getCartItems_whenItemNotFound_shouldThrowException() {
-        when(itemRepository.findById(999L)).thenReturn(Optional.empty());
+    void test_updateQuantity_Minus() {
+        when(cartItemRepository.findBySessionIdAndItemId(eq(SESSION_ID), eq(1L)))
+                .thenReturn(Mono.just(cartItem1));
+        when(cartItemRepository.save(eq(cartItem1)))
+                .thenReturn(Mono.just(cartItem1));
 
-        cartService.addToCart(999L, 1);
+        Mono<Void> result = cartService.updateQuantity(SESSION_ID, 1L, "MINUS");
 
-        assertThatThrownBy(() -> cartService.getCartItems())
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Item not found");
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(cartItemRepository, times(1))
+                .findBySessionIdAndItemId(SESSION_ID, 1L);
+        verify(cartItemRepository, times(1)).save(cartItem1);
     }
 
     @Test
-    void getCartItems_shouldHandleEmptyCart() {
-        List<ItemDto> cartItems = cartService.getCartItems();
-        assertThat(cartItems).isEmpty();
+    void test_updateQuantity_Delete() {
+        when(cartItemRepository.findBySessionIdAndItemId(eq(SESSION_ID), eq(1L)))
+                .thenReturn(Mono.just(cartItem1));
+        when(cartItemRepository.delete(eq(cartItem1)))
+                .thenReturn(Mono.empty());
+
+        Mono<Void> result = cartService.updateQuantity(SESSION_ID, 1L, "DELETE");
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(cartItemRepository, times(1))
+                .findBySessionIdAndItemId(SESSION_ID, 1L);
+        verify(cartItemRepository, times(1)).delete(cartItem1);
     }
 
     @Test
-    void getTotalPrice_shouldCalculateCorrectly() {
-        when(itemRepository.findById(1L)).thenReturn(Optional.of(item));
-        when(itemRepository.findById(2L)).thenReturn(Optional.of(item));
+    void test_updateQuantity_InvalidAction() {
+        Mono<Void> result = cartService.updateQuantity(SESSION_ID, 1L, "INVALID");
 
-        cartService.addToCart(1L, 2);  // 2 × 100 = 200
-        cartService.addToCart(2L, 3);  // 3 × 100 = 300
+        StepVerifier.create(result)
+                .verifyComplete();
 
-        long total = cartService.getTotalPrice();
-        assertThat(total).isEqualTo(500L);
+        verify(cartItemRepository, never())
+                .findBySessionIdAndItemId(anyString(), anyLong());
+        verify(cartItemRepository, never()).save(any());
+        verify(cartItemRepository, never()).delete(any());
+    }
+
+
+    @Test
+    void test_updateQuantity_NullAction() {
+        Mono<Void> result = cartService.updateQuantity(SESSION_ID, 1L, null);
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(cartItemRepository, never())
+                .findBySessionIdAndItemId(anyString(), anyLong());
+        verify(cartItemRepository, never()).save(any());
+        verify(cartItemRepository, never()).delete(any());
     }
 
     @Test
-    void getTotalPrice_whenCartEmpty_shouldReturnZero() {
-        long total = cartService.getTotalPrice();
-        assertThat(total).isZero();
+    void test_getItemCount_ItemExists() {
+        when(cartItemRepository.findBySessionIdAndItemId(eq(SESSION_ID), eq(1L)))
+                .thenReturn(Mono.just(cartItem1));
+
+        Mono<Integer> result = cartService.getItemCount(SESSION_ID, 1L);
+
+        StepVerifier.create(result)
+                .expectNext(2) // количество из cartItem1
+                .verifyComplete();
+
+        verify(cartItemRepository, times(1))
+                .findBySessionIdAndItemId(SESSION_ID, 1L);
     }
 
     @Test
-    void getItemCount_shouldReturnZeroForMissingItem() {
-        assertThat(cartService.getItemCount(999L)).isZero();
+    void test_getItemCount_ItemNotInCart() {
+        when(cartItemRepository.findBySessionIdAndItemId(eq(SESSION_ID), eq(999L)))
+                .thenReturn(Mono.empty());
+
+        Mono<Integer> result = cartService.getItemCount(SESSION_ID, 999L);
+
+        StepVerifier.create(result)
+                .expectNext(0)
+                .verifyComplete();
+
+        verify(cartItemRepository, times(1))
+                .findBySessionIdAndItemId(SESSION_ID, 999L);
+    }
+
+    @Test
+    void test_removeItem_ItemNotExists() {
+        when(cartItemRepository.findBySessionIdAndItemId(eq(SESSION_ID), eq(999L)))
+                .thenReturn(Mono.empty());
+
+        Mono<Void> result = cartService.removeItem(SESSION_ID, 999L);
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(cartItemRepository, times(1))
+                .findBySessionIdAndItemId(SESSION_ID, 999L);
+        verify(cartItemRepository, never()).delete(any());
+    }
+
+    @Test
+    void test_modifyItem_NegativeQuantityButItemExists() {
+        cartItem1.setQuantity(3); // текущее количество — 3
+        when(cartItemRepository.findBySessionIdAndItemId(eq(SESSION_ID), eq(1L)))
+                .thenReturn(Mono.just(cartItem1));
+        when(cartItemRepository.save(eq(cartItem1)))
+                .thenReturn(Mono.just(cartItem1));
+
+        Mono<Void> result = cartService.modifyItem(SESSION_ID, 1L, -2);
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        assertThat(cartItem1.getQuantity()).isEqualTo(1);
+        verify(cartItemRepository, times(1))
+                .findBySessionIdAndItemId(SESSION_ID, 1L);
+        verify(cartItemRepository, times(1)).save(cartItem1);
+        verify(cartItemRepository, never()).delete(any());
     }
 }

@@ -1,15 +1,16 @@
-# Spring Boot -приложение my-market-app реализует веб-приложение «Витрина интернет-магазина».
+# Spring Boot -приложение my-market-app реализует веб-приложение «Витрина интернет-магазина», используя реактивный стек
 
 ## Приложение построено по Шаблону проектирования «Controller → Service → Repository»
 
-- Hibernate -работа с БД (БД H2)
+- Rd2BC -работа с БД (БД H2)
 - Thymeleaf - взаимодейстивие с HTML шаблонами
 
 ## Используемые технологии
 - Java 21
 - Spring Boot
 - Spring Boot Test
-- JPA
+- RD2BC
+- WebFlux
 - Thymeleaf
 - JUnit 5
 - Mockito
