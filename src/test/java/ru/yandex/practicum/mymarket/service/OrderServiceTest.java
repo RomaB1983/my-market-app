@@ -193,7 +193,7 @@ class OrderServiceTest {
         verify(orderRepository, times(1)).findByIdAndSessionId(999L, SESSION_ID);
         verify(itemService, never()).getItemByIdForOrder(anyLong());
     }
-
+    @Test
     void test_getItems_Success() {
         OrderItem orderItem1 = new OrderItem();
         orderItem1.setId(1L);

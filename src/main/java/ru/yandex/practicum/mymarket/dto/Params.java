@@ -5,7 +5,6 @@ import org.springframework.data.annotation.Id;
 
 @Data
 public class Params {
-    @Id
     private Long id;
     private String sort = "NO";
     private int pageNumber = 1;
