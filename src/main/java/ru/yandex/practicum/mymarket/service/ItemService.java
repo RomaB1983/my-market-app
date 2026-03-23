@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.dto.ItemDto;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.repository.ItemRepository;
@@ -18,7 +20,13 @@ public class ItemService {
     private final CartService cartService;
 
     @Transactional(readOnly = true)
-    public Page<ItemDto> getAllItems(String search, String sort, int pageNumber, int pageSize) {
+    public Mono<Page<ItemDto>> getAllItems(
+            String search,
+            String sort,
+            int pageNumber,
+            int pageSize,
+            String sessionId
+    ) {
         Sort sortOrder = Sort.unsorted();
         if ("ALPHA".equals(sort)) {
             sortOrder = Sort.by(Sort.Direction.ASC, "title");
@@ -27,27 +35,53 @@ public class ItemService {
         }
         Pageable pageable = PageRequest.of(pageNumber - 1, pageSize, sortOrder);
 
-        Page<Item> items;
+        Mono<List<ItemDto>> items;
+        Mono<Long> totalCount;
 
-        // Поиск по названию/описанию
         if (search != null && !search.isEmpty()) {
-            items = itemRepository.findByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCase(search, search, pageable);
+            items = itemRepository.findByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCase(search, search, pageable)
+                    .map(this::toDto)
+                    .collectList();
+
+            totalCount = itemRepository.countByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCase(search, search);
         } else {
-            items = itemRepository.findAll(pageable);
+            items = itemRepository.findAllBy(pageable)
+                    .map(this::toDto)
+                    .collectList();
+
+            totalCount = itemRepository.count();
         }
 
-        List<ItemDto> dtoList = items.getContent().stream()
-                .map(this::toDto)
-                .toList();
-
-        return new PageImpl<>(dtoList, items.getPageable(), items.getTotalElements());
+        return items
+                .zipWith(totalCount)
+                .flatMap(tuple -> {
+                    List<ItemDto> itemsDto = tuple.getT1();
+                    long total = tuple.getT2();
+                    return Flux.fromIterable(itemsDto)
+                            .flatMap(item -> setCount(sessionId, item))
+                            .collectList()
+                            .map(updatedItems -> new PageImpl<>(updatedItems, pageable, total));
+                });
     }
 
     @Transactional(readOnly = true)
-    public ItemDto getItemById(Long id) {
-        Item item = itemRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Item not found"));
-        return toDto(item);
+    public Mono<ItemDto> getItemById(String sessionId, Long id) {
+        return itemRepository.findById(id)
+                .map(this::toDto)
+                .flatMap(dto -> setCount(sessionId, dto));
+    }
+
+    Mono<ItemDto> setCount(String sessionId, ItemDto dto) {
+        return cartService.getItemCount(sessionId, dto.getId())
+                .map(count -> {
+                    dto.setCount(count);
+                    return dto;
+                });
+    }
+
+    public Mono<ItemDto> getItemByIdForOrder(Long itemId) {
+        return itemRepository.findById(itemId)
+                .map(this::toDto);
     }
 
     private ItemDto toDto(Item item) {
@@ -57,8 +91,6 @@ public class ItemService {
         dto.setDescription(item.getDescription());
         dto.setImgPath(item.getImgPath());
         dto.setPrice(item.getPrice());
-        dto.setCount(cartService.getItemCount(item.getId())); // уже может быть что-то в корзине
         return dto;
     }
 }
-

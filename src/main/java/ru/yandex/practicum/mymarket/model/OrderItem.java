@@ -1,26 +1,18 @@
 package ru.yandex.practicum.mymarket.model;
 
-import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Table;
 
-@Entity
-@Table(name = "order_items")
-@Getter
-@Setter
-@NoArgsConstructor
+@Data
 @AllArgsConstructor
+@NoArgsConstructor
+@Table(name = "ORDER_ITEMS")
 public class OrderItem {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @ManyToOne
-    @JoinColumn(name = "item_id", nullable = false)
-    private Item item;
-
-    @Column(nullable = false)
+    private Long itemId;
+    private Long orderId;
     private Integer count;
-
-    @Column(nullable = false)
     private Long price;
 }
