@@ -1,0 +1,111 @@
+openapi: 3.0.2
+info:
+  title: PaymentApi
+  description: API для получения баланса и оплаты заказа
+  version: 1.0.0
+
+servers:
+  - url: /api
+
+tags:
+  - name: Payment
+    description: Оплата заказа
+
+paths:
+  /api/balance:
+    get:
+      tags:
+        - Payment
+      operationId: getBalance
+      summary: Получить остаток по пользователю
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceResponse'
+        '404':
+          description: Пользователь не найден
+  /api/pay:
+    post:
+      tags:
+        - Payment
+      operationId: processPayment
+      summary: Оплата заказа
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+      responses:
+        '201':
+          description: Оплата успешно завершена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          description: Недостаточно средств
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '404':
+          description: Пользователь не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+components:
+  schemas:
+    BalanceResponse:
+      type: object
+      required:
+        - saldo
+      properties:
+        saldo:
+          type: number
+          format: long
+          description: Остаток
+      description: Баланс
+    PaymentRequest:
+      type: object
+      required:
+        - totalSum
+      properties:
+        totalSum:
+          type: number
+          format: long
+          description: Сумма заказа к оплате
+    PaymentStatus:
+      type: string
+      enum:
+        - SUCCESS
+        - ERROR
+      description: Статус операции платежа
+    PaymentResponse:
+      type: object
+      required:
+        - status
+        - description
+      properties:
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+          description: Статус выполнения операции
+        description:
+          type: string
+          description: Описание результата операции
+  parameters:
+    UserId:
+      name: UserId
+      description: Уникальный идентификатор пользователя
+      in: header
+      required: true
+      schema:
+        type: string

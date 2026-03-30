@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>ru.yandex.practicum</groupId>
+        <artifactId>my-market-app</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>payment-service</artifactId>
+    <packaging>jar</packaging>
+
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
+            <version>3.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-r2dbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations</artifactId>
+            <version>2.2.28</version>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.openapitools</groupId>
+                <artifactId>openapi-generator-maven-plugin</artifactId>
+                <version>7.12.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <inputSpec>${project.basedir}/src/main/resources/payment-open-api.yaml</inputSpec>
+                            <generatorName>spring</generatorName>
+                            <apiPackage>ru.yandex.practicum.payment.controller</apiPackage>
+                            <modelPackage>ru.yandex.practicum.payment.model</modelPackage>
+                            <output>${project.build.directory}/generated-sources</output>
+                            <generateApiTests>false</generateApiTests>
+                            <generateModelTests>false</generateModelTests>
+                            <configOptions>
+                                <library>spring-boot</library>
+                                <useJakartaEe>true</useJakartaEe>
+                                <reactive>true</reactive>
+                                <interfaceOnly>true</interfaceOnly>
+                                <openApiNullable>false</openApiNullable>
+                                <useTags>true</useTags>
+<!--                                <apiName>Payment</apiName>-->
+                            </configOptions>
+                            <!-- Отключаем валидацию, если нужно быстро проверить -->
+                            <!--                            <validateSpec>false</validateSpec>-->
+                        </configuration>
+                    </execution>
+
+                    <!--                    <execution>-->
+                    <!--                        <goals>-->
+                    <!--                            <goal>generate</goal>-->
+                    <!--                        </goals>-->
+                    <!--                        <configuration>-->
+                    <!--                            <inputSpec>${project.basedir}/src/main/resources/api-spec.yaml</inputSpec>-->
+                    <!--                            <generatorName>java</generatorName>-->
+                    <!--                            <apiPackage>ru.ya.client.controller</apiPackage>-->
+                    <!--                            <invokerPackage>ru.ya.client</invokerPackage>-->
+                    <!--                            <modelPackage>ru.ya.client.domain</modelPackage>-->
+                    <!--                            <configOptions>-->
+                    <!--                                <library>webclient</library>-->
+                    <!--                                &lt;!&ndash; Включаем поддержку пакетов Jakarta EE вместо javax &ndash;&gt;-->
+                    <!--                                <useJakartaEe>true</useJakartaEe>-->
+                    <!--                                &lt;!&ndash; Отключаем использование библиотеки OpenAPI Jackson Nullable &ndash;&gt;-->
+                    <!--                                <openApiNullable>false</openApiNullable>-->
+                    <!--                            </configOptions>-->
+                    <!--                        </configuration>-->
+                    <!--                    </execution>-->
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
