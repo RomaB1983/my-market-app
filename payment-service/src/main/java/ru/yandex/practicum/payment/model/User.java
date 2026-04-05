@@ -16,5 +16,5 @@ import java.math.BigDecimal;
 public class User {
     @Id
     private String userId;
-    private BigDecimal saldo;
+    private Long saldo;
 }

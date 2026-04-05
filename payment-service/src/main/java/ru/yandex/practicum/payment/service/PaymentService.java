@@ -10,33 +10,35 @@ import ru.yandex.practicum.payment.model.User;
 import ru.yandex.practicum.payment.repository.UserRepository;
 import ru.yandex.practicum.payment.util.BalanceGenerator;
 
-import java.math.BigDecimal;
-
 @Slf4j
 @RequiredArgsConstructor
 @Service
 public class PaymentService {
-    UserRepository userRepository;
+    private final UserRepository userRepository;
 
-    @Cacheable(value = "userBalance", key = "#userId")
-    public Mono<BigDecimal> getBalance(String userId) {
+    @Cacheable(value = "user", key = "#userId")
+    public Mono<Long> getBalance(String userId) {
+        log.info("Запрос на получение баланса из БД. userId: {}", userId);
         return userRepository.findById(userId)
                 .switchIfEmpty(Mono.defer(() -> createUser(userId)))
                 .map(User::getSaldo);
     }
 
     private Mono<User> createUser(String userId) {
-        return userRepository.save(new User(userId, BalanceGenerator.get()));
+        log.info("Создаем нового пользователя. userId: {}", userId);
+        Long balance = BalanceGenerator.get();
+        return userRepository.insert(userId, balance)
+                .then(Mono.just(new User(userId,balance)));
     }
 
-    @CacheEvict(value = "userBalance", key = "#userId")
-    public Mono<User> processPayment(String userId, BigDecimal totalSum) {
+    @CacheEvict(value = "user", key = "#userId")
+    public Mono<User> createPayment(String userId, Long totalSum) {
         log.info("Запрос на оплату заказа. userId: {}, сумма оплаты: {}", userId, totalSum);
         return userRepository.findById(userId)
                 .switchIfEmpty(Mono.defer(() -> createUser(userId)))
                 .flatMap(user -> {
-                    if (user.getSaldo().compareTo(totalSum) >= 0) {
-                        user.setSaldo(user.getSaldo().subtract(totalSum));
+                    if (user.getSaldo() > totalSum) {
+                        user.setSaldo(user.getSaldo() - totalSum);
                         log.info("Успешная оплата заказа. userId: {}, сумма оплаты: {}, баланс после оплаты: {}"
                                 , userId, totalSum, user.getSaldo());
                         return userRepository.save(user);

@@ -1,6 +1,8 @@
 package ru.yandex.practicum.shop.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,12 +14,14 @@ import ru.yandex.practicum.shop.repository.ItemRepository;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ItemService {
 
     private final ItemRepository itemRepository;
     private final CartService cartService;
+    private final CacheService cacheService;
 
     @Transactional(readOnly = true)
     public Mono<Page<ItemDto>> getAllItems(
@@ -66,10 +70,11 @@ public class ItemService {
 
     @Transactional(readOnly = true)
     public Mono<ItemDto> getItemById(String sessionId, Long id) {
-        return itemRepository.findById(id)
+        return cacheService.getItemById(sessionId, id)
                 .map(this::toDto)
                 .flatMap(dto -> setCount(sessionId, dto));
     }
+
 
     Mono<ItemDto> setCount(String sessionId, ItemDto dto) {
         return cartService.getItemCount(sessionId, dto.getId())

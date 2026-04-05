@@ -11,103 +11,106 @@
     </parent>
     <!-- Ниже можете изменить настройки артефакта вашего проекта -->
     <groupId>ru.yandex.practicum</groupId>
-    <artifactId>my-market-app</artifactId>
+    <artifactId>my-market-parent</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>my-market-app</name>
-    <description>My Market Application</description>
+    <!--    <name>my-market-app</name>-->
+    <description>Multi Module Market</description>
 
     <modules>
         <module>payment-service</module>
         <module>shop-service</module>
+        <module>api-spec</module>
     </modules>
 
     <properties>
         <java.version>21</java.version>
+        <!--        <api-spec.version>1.0.0-SNAPSHOT</api-spec.version>-->
+        <api-spec.path>${project.basedir}/../api-spec/src/main/resources</api-spec.path>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <openapi-generator.version>7.12.0</openapi-generator.version>
+
     </properties>
-<!--    <dependencies>-->
-<!--        &lt;!&ndash; Ниже пропишите зависимости для вашего проекта &ndash;&gt;-->
-<!--        &lt;!&ndash; Spring Boot Starter Web &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>org.springframework.boot</groupId>-->
-<!--            <artifactId>spring-boot-starter-webflux</artifactId>-->
-<!--        </dependency>-->
 
-<!--        <dependency>-->
-<!--            <groupId>org.springframework.session</groupId>-->
-<!--            <artifactId>spring-session-core</artifactId>-->
-<!--        </dependency>-->
 
-<!--        &lt;!&ndash; Spring Boot Starter Data JPA &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>org.springframework.boot</groupId>-->
-<!--            <artifactId>spring-boot-starter-data-r2dbc</artifactId>-->
-<!--        </dependency>-->
+    <!--    <dependencyManagement>-->
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
 
-<!--&lt;!&ndash;         H2 Database (in-memory) &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>com.h2database</groupId>-->
-<!--            <artifactId>h2</artifactId>-->
-<!--            <scope>runtime</scope>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
 
-<!--        <dependency>-->
-<!--            <groupId>io.r2dbc</groupId>-->
-<!--            <artifactId>r2dbc-h2</artifactId>-->
-<!--            <scope>runtime</scope>-->
-<!--        </dependency>-->
+        <!-- Spring Boot Starter Data JPA -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-r2dbc</artifactId>
+        </dependency>
 
-<!--        &lt;!&ndash; Thymeleaf &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>org.springframework.boot</groupId>-->
-<!--            <artifactId>spring-boot-starter-thymeleaf</artifactId>-->
-<!--        </dependency>-->
+        <!--         H2 Database (in-memory) -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.r2dbc</groupId>
+            <artifactId>r2dbc-h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations</artifactId>
+            <version>2.2.20</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis-reactive</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
 
-<!--        &lt;!&ndash; Validation &ndash;&gt;-->
-<!--&lt;!&ndash;        <dependency>&ndash;&gt;-->
-<!--&lt;!&ndash;            <groupId>org.springframework.boot</groupId>&ndash;&gt;-->
-<!--&lt;!&ndash;            <artifactId>spring-boot-starter-validation</artifactId>&ndash;&gt;-->
-<!--&lt;!&ndash;        </dependency>&ndash;&gt;-->
+    </dependencies>
 
-<!--        &lt;!&ndash; Lombok (для сокращения кода) &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>org.projectlombok</groupId>-->
-<!--            <artifactId>lombok</artifactId>-->
-<!--            <optional>true</optional>-->
-<!--        </dependency>-->
-
-<!--        &lt;!&ndash; Test dependencies &ndash;&gt;-->
-<!--        <dependency>-->
-<!--            <groupId>org.springframework.boot</groupId>-->
-<!--            <artifactId>spring-boot-starter-test</artifactId>-->
-<!--            <scope>test</scope>-->
-<!--        </dependency>-->
-
-<!--        <dependency>-->
-<!--            <groupId>org.junit.jupiter</groupId>-->
-<!--            <artifactId>junit-jupiter-api</artifactId>-->
-<!--            <scope>test</scope>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>org.mockito</groupId>-->
-<!--            <artifactId>mockito-core</artifactId>-->
-<!--            <scope>test</scope>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>io.projectreactor</groupId>-->
-<!--            <artifactId>reactor-test</artifactId>-->
-<!--            <scope>test</scope>-->
-<!--        </dependency>-->
-
-<!--    </dependencies>-->
-
-<!--    <build>-->
-<!--        <plugins>-->
-<!--            &lt;!&ndash; Ниже пропишите плагины для вашего проекта &ndash;&gt;-->
-<!--            <plugin>-->
-<!--                <groupId>org.springframework.boot</groupId>-->
-<!--                <artifactId>spring-boot-maven-plugin</artifactId>-->
-<!--            </plugin>-->
-<!--        </plugins>-->
-<!--    </build>-->
 </project>

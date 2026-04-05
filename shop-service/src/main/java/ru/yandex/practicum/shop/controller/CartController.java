@@ -2,15 +2,13 @@ package ru.yandex.practicum.shop.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.result.view.Rendering;
 import org.springframework.web.server.WebSession;
 import reactor.core.publisher.Mono;
 import ru.yandex.practicum.shop.dto.Params;
 import ru.yandex.practicum.shop.service.CartService;
+import ru.yandex.practicum.shop.service.PaymentService;
 
 @Controller
 @RequiredArgsConstructor
@@ -18,18 +16,26 @@ import ru.yandex.practicum.shop.service.CartService;
 public class CartController {
 
     private final CartService cartService;
+    private final PaymentService paymentService;
 
     @GetMapping("/items")
-    public Mono<Rendering> getCartItems(WebSession session) {
+    public Mono<Rendering> getCartItems
+            (WebSession session,
+             @RequestParam(required = false) String paymentError) {
         return cartService.getCartItems(session.getId())
-                .map(items -> {
+                .flatMap(items -> {
                             long total = items.stream()
                                     .mapToLong(item -> item.getPrice() * item.getCount())
                                     .sum();
-                            return Rendering.view("cart")
-                                    .modelAttribute("items", items)
-                                    .modelAttribute("total", total)
-                                    .build();
+                            return paymentService.getUserBalance(session.getId())
+                                    .map(balance ->
+                                            Rendering.view("cart")
+                                                    .modelAttribute("items", items)
+                                                    .modelAttribute("total", total)
+                                                    .modelAttribute("isOkBalance", balance>=total)
+                                                    .modelAttribute("saldo", balance)
+                                                    .modelAttribute("paymentError", paymentError)
+                                                    .build());
                         }
                 );
     }

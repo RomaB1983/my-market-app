@@ -1,6 +1,7 @@
 package ru.yandex.practicum.shop.controller;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.result.view.Rendering;
@@ -15,7 +16,7 @@ import ru.yandex.practicum.shop.service.ItemService;
 import java.util.ArrayList;
 import java.util.List;
 
-
+@Slf4j
 @Controller
 @RequiredArgsConstructor
 @CrossOrigin
@@ -58,6 +59,7 @@ public class ItemController {
 
     @GetMapping("/items/{id}")
     public Mono<Rendering> getItem(WebSession session, @PathVariable Long id) {
+        log.info("Получаем продукт из кеша id::{} sessionId:{}",id,session.getId());
         return itemService.getItemById(session.getId(), id)
                 .map(item -> Rendering.view("item")
                         .modelAttribute("item", item)

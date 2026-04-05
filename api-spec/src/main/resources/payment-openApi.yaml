@@ -33,7 +33,7 @@ paths:
     post:
       tags:
         - Payment
-      operationId: processPayment
+      operationId: createPayment
       summary: Оплата заказа
       parameters:
         - $ref: '#/components/parameters/UserId'
@@ -70,8 +70,8 @@ components:
         - saldo
       properties:
         saldo:
-          type: number
-          format: long
+          type: integer
+          format: int64
           description: Остаток
       description: Баланс
     PaymentRequest:
@@ -80,8 +80,8 @@ components:
         - totalSum
       properties:
         totalSum:
-          type: number
-          format: long
+          type: integer
+          format: int64
           description: Сумма заказа к оплате
     PaymentStatus:
       type: string

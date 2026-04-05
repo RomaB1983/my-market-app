@@ -1,5 +1,6 @@
 package ru.yandex.practicum.shop.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 
 @Getter
@@ -12,5 +13,6 @@ public class ItemDto {
     private String description;
     private String imgPath;
     private Long price;
+//    @JsonIgnore
     private Integer count;
 }

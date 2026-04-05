@@ -60,6 +60,10 @@ public class CartService {
                 .flatMap(cartItemRepository::delete);
     }
 
+    public Mono<Void> removeAllItems(String sessionId) {
+        return cartItemRepository.deleteBySessionId(sessionId)
+                .then();
+    }
 
 //    public Mono<Void> clearCart() {
 //        return Mono.fromRunnable(cart::clear)
