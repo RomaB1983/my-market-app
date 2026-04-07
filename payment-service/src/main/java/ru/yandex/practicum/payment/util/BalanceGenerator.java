@@ -1,6 +1,5 @@
 package ru.yandex.practicum.payment.util;
 
-import java.math.BigDecimal;
 import java.util.Random;
 
 public class BalanceGenerator {

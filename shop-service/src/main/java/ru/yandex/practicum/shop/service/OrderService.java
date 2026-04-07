@@ -13,7 +13,6 @@ import ru.yandex.practicum.shop.model.OrderItem;
 import ru.yandex.practicum.shop.repository.OrderItemRepository;
 import ru.yandex.practicum.shop.repository.OrderRepository;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,9 +35,10 @@ public class OrderService {
                         return Mono.error(new RuntimeException("Cart is empty"));
                     }
 
-                    Long totalSum = cartItems.stream()
-                            .mapToLong(item ->item.getPrice()+item.getCount())
-                            .sum();
+                    Long totalSum = getTotalSum(cartItems);
+//                    Long totalSum = cartItems.stream()
+//                            .mapToLong(item -> item.getPrice() * item.getCount())
+//                            .sum();
 
                     List<OrderItem> orderItems = cartItems.stream()
                             .map(this::toOrderItem)
@@ -73,6 +73,12 @@ public class OrderService {
                 })
                 .doOnSuccess(orderDto -> log.info("Order created successfully: {}", orderDto.getId()))
                 .doOnError(error -> log.error("Failed to create order for session: {}", sessionId, error));
+    }
+
+    protected Long getTotalSum(List<ItemDto> cartItems) {
+        return cartItems.stream()
+                .mapToLong(item -> item.getPrice() * item.getCount())
+                .sum();
     }
 
     private OrderItem toOrderItem(ItemDto item) {

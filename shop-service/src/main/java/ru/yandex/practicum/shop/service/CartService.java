@@ -65,11 +65,6 @@ public class CartService {
                 .then();
     }
 
-//    public Mono<Void> clearCart() {
-//        return Mono.fromRunnable(cart::clear)
-//                .then();
-//    }
-
     public Mono<Void> updateQuantity(String sessionId, Long itemId, String action) {
         if (action == null) return Mono.empty();
         return Mono.just(action)

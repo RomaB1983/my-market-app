@@ -8,7 +8,6 @@ import org.springframework.session.data.redis.config.annotation.web.server.Enabl
 
 @SpringBootApplication
 @EnableR2dbcRepositories
-@EnableRedisWebSession(redisNamespace = "shop:session")
 public class ShopServiceApplication {
     public static void main(String[] args) {
          SpringApplication.run(ShopServiceApplication.class, args);
