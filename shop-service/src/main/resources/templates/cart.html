@@ -68,11 +68,6 @@
             <div th:if="${!isOkBalance}" class="text-danger mt-2 small">
                   ⚠️ Недостаточно средств на балансе для оформления заказа.
             </div>
-<!--            <div th:if="${!isOkBalance}" class="text-danger mt-2 small">-->
-<!--            <span>⚠️ Недостаточно средств на балансе для оформления заказа.</span>-->
-<!--            <br>-->
-<!--            <span>   На балансе: <strong th:text="${saldo} + ' руб.'"></strong></span>-->
-<!--            </div>-->
             <div class="alert alert-info">
                 На балансе: <strong th:text="${saldo} + ' руб.'"></strong>
             </div>

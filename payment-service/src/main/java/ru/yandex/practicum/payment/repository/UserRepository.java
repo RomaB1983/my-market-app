@@ -6,8 +6,10 @@ import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import reactor.core.publisher.Mono;
 import ru.yandex.practicum.payment.model.User;
 
-public interface UserRepository extends ReactiveCrudRepository<User, String>{
-    @Query(value = "INSERT INTO users(user_id, saldo) VALUES(:id, :saldo)")
-    Mono<Void> insert(@Param("id") String userId,@Param("saldo") Long saldo);
+public interface UserRepository extends ReactiveCrudRepository<User, Long> {
+    @Query(value = "INSERT INTO users(username, saldo) VALUES(:username, :saldo)")
+    Mono<Void> insert(@Param("username") String username, @Param("saldo") Long saldo);
+
+    Mono<User> findByUsername(String username);
 }
 

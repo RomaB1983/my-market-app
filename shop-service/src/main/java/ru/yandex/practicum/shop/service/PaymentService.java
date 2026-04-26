@@ -16,25 +16,25 @@ import ru.yandex.practicum.shop.client.model.PaymentStatus;
 public class PaymentService {
     private final PaymentApi paymentApi;
 
-    public Mono<Long> getUserBalance(String userId) {
-        return paymentApi.getBalance(userId)
+    public Mono<Long> getUserBalance(String username) {
+        return paymentApi.getBalance(username)
                 .map(BalanceResponse::getSaldo)
-                .doOnNext(saldo -> log.debug("Баланс: {}, userId: {}", saldo, userId))
+                .doOnNext(saldo -> log.debug("Баланс: {}, username: {}", saldo, username))
                 .onErrorResume(e -> {
-                    log.error("Не удалось получить баланс по userId: {}: {}", userId, e.getMessage());
+                    log.error("Не удалось получить баланс по username: {}: {}", username, e.getMessage());
                     return Mono.just(0L);
                 });
     }
 
-    public Mono<PaymentStatus> createPayment(String userId, Long amount) {
+    public Mono<PaymentStatus> createPayment(String username, Long amount) {
         PaymentRequest request = new PaymentRequest().totalSum(amount);
-        return paymentApi.createPayment(userId, request)
+        return paymentApi.createPayment(username, request)
                 .map(PaymentResponse::getStatus)
                 .doOnNext(status ->
-                        log.debug("CreatePayment: userId: {} totalSum: {} status: {}",
-                                userId, amount, status))
+                        log.debug("CreatePayment: username: {} totalSum: {} status: {}",
+                                username, amount, status))
                 .onErrorResume(e -> {
-                    log.error("Не удалось выполнить оплату userId: {} totalSum: {} :{}", userId, amount, e.getMessage());
+                    log.error("Не удалось выполнить оплату username: {} totalSum: {} :{}", username, amount, e.getMessage());
                     return Mono.just(PaymentStatus.ERROR);
                 });
     }

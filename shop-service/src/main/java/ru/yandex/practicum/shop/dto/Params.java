@@ -1,7 +1,6 @@
 package ru.yandex.practicum.shop.dto;
 
 import lombok.Data;
-import org.springframework.data.annotation.Id;
 
 @Data
 public class Params {

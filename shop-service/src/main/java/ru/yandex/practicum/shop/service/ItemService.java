@@ -28,7 +28,7 @@ public class ItemService {
             String sort,
             int pageNumber,
             int pageSize,
-            String sessionId
+            String username
     ) {
         Sort sortOrder = Sort.unsorted();
         if ("ALPHA".equals(sort)) {
@@ -61,22 +61,22 @@ public class ItemService {
                     List<ItemDto> itemsDto = tuple.getT1();
                     long total = tuple.getT2();
                     return Flux.fromIterable(itemsDto)
-                            .flatMap(item -> setCount(sessionId, item))
+                            .flatMap(item -> setCount(username, item))
                             .collectList()
                             .map(updatedItems -> new PageImpl<>(updatedItems, pageable, total));
                 });
     }
 
     @Transactional(readOnly = true)
-    public Mono<ItemDto> getItemById(String sessionId, Long id) {
-        return cacheService.getItemById(sessionId, id)
+    public Mono<ItemDto> getItemById(String username, Long id) {
+        return cacheService.getItemById(username, id)
                 .map(this::toDto)
-                .flatMap(dto -> setCount(sessionId, dto));
+                .flatMap(dto -> setCount(username, dto));
     }
 
 
-    Mono<ItemDto> setCount(String sessionId, ItemDto dto) {
-        return cartService.getItemCount(sessionId, dto.getId())
+    Mono<ItemDto> setCount(String username, ItemDto dto) {
+        return cartService.getItemCount(username, dto.getId())
                 .map(count -> {
                     dto.setCount(count);
                     return dto;
