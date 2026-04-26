@@ -1,104 +1,112 @@
-//package ru.yandex.practicum.payment;
-//
-//import org.junit.jupiter.api.Test;
-//import org.springframework.beans.factory.annotation.Autowired;
-//import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
-//import org.springframework.boot.test.context.SpringBootTest;
-//import org.springframework.http.MediaType;
-//import org.springframework.test.context.bean.override.mockito.MockitoBean;
-//import org.springframework.test.web.reactive.server.WebTestClient;
-//import reactor.core.publisher.Mono;
-//import ru.yandex.practicum.payment.model.*;
-//import ru.yandex.practicum.payment.repository.UserRepository;
-//import ru.yandex.practicum.payment.service.PaymentService;
-//
-//import static org.mockito.ArgumentMatchers.anyLong;
-//import static org.mockito.ArgumentMatchers.anyString;
-//import static org.mockito.Mockito.when;
-//import static org.springframework.web.reactive.function.BodyInserters.fromValue;
-//
-//@SpringBootTest
-//@AutoConfigureWebTestClient
-//class PaymentControllerTest {
-//
-//    @Autowired
-//    private WebTestClient webTestClient;
-//
-//    @MockitoBean
-//    private PaymentService paymentService;
-//
-//    @MockitoBean
-//    private UserRepository userRepository;
-//
-//
-//    @Test
-//    void test_getBalance_Success() {
-//        // Given
-//        Long userId = 1L;
-//        Long expectedBalance = 1000L;
-//
-//        when(paymentService.getBalance(anyLong()))
-//                .thenReturn(Mono.just(expectedBalance));
-//        when(userRepository.findById(anyLong()))
-//                .thenReturn(Mono.just(new User(userId, expectedBalance + 100)));
-//
-//        // When & Then
-//        webTestClient.get()
-//                .uri("/api/balance")
-//                .header("UserId", String.valueOf(userId))
-//                .accept(MediaType.APPLICATION_JSON)
-//                .exchange()
-//                .expectStatus().isOk()
-//                .expectHeader().contentType(MediaType.APPLICATION_JSON)
-//                .expectBody(BalanceResponse.class)
-//                .value(response -> {
-//                    assert response.getSaldo().equals(expectedBalance);
-//                });
-//    }
-//
-//    @Test
-//    void test_getBalance_NotFound() {
-//        // Given
-//        String userId = "nonexistent";
-//
-//        when(paymentService.getBalance(anyLong()))
-//                .thenReturn(Mono.error(new IllegalArgumentException("User not found")));
-//
-//        // When & Then
-//        webTestClient.get()
-//                .uri("api/balance")
-//                .header("UserId",userId)
-//                .accept(MediaType.APPLICATION_JSON)
-//                .exchange()
-//                .expectStatus().isNotFound();
-//    }
-//
-//    @Test
-//    void test_createPayment_Success() {
-//        Long userId = 1L;
-//        Long amount = 500L;
-//        User user = new User(userId, amount + 100);
-//        PaymentRequest paymentRequest = new PaymentRequest();
-//        paymentRequest.setTotalSum(amount);
-//
-//        when(paymentService.createPayment(anyLong(), anyLong()))
-//                .thenReturn(Mono.just(user));
-//
-//        when(userRepository.findById(userId))
-//                .thenReturn(Mono.just(user));
-//
-//        webTestClient.post()
-//                .uri("/api/pay")
-//                .header("UserId", String.valueOf(userId))
-//                .contentType(MediaType.APPLICATION_JSON)
-//                .body(fromValue(paymentRequest))
-//                .exchange()
-//                .expectStatus().isOk()
-//                .expectHeader().contentType(MediaType.APPLICATION_JSON)
-//                .expectBody(PaymentResponse.class)
-//                .value(response -> {
-//                    assert PaymentStatus.SUCCESS.equals(response.getStatus());
-//                    assert "Успешное выполнение оплаты".equals(response.getDescription());
-//                });
-//    }
-//}
+package ru.yandex.practicum.payment;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Mono;
+import ru.yandex.practicum.payment.config.SecurityConfig;
+import ru.yandex.practicum.payment.controller.PaymentController;
+import ru.yandex.practicum.payment.model.*;
+import ru.yandex.practicum.payment.repository.UserRepository;
+import ru.yandex.practicum.payment.service.PaymentService;
+
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockJwt;
+import static org.springframework.web.reactive.function.BodyInserters.fromValue;
+
+@WebFluxTest(PaymentController.class)
+@Import(SecurityConfig.class)
+class PaymentControllerTest {
+
+    @Autowired
+    private WebTestClient webTestClient;
+
+    @MockitoBean
+    private PaymentService paymentService;
+
+    @MockitoBean
+    private UserRepository userRepository;
+
+
+    @Test
+        void test_getBalance_Success() {
+        // Given
+        String username = "user";
+        Long expectedBalance = 1000L;
+
+        when(paymentService.getBalance(anyString()))
+                .thenReturn(Mono.just(expectedBalance));
+        when(userRepository.findByUsername(anyString()))
+                .thenReturn(Mono.just(new User(username, expectedBalance + 100)));
+
+        // When & Then
+        webTestClient.mutateWith(mockJwt()
+                        .authorities(new SimpleGrantedAuthority("SCOPE_payments.read")))
+                .get().uri("/api/balance")
+                .header("Username", username)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.APPLICATION_JSON)
+                .expectBody(BalanceResponse.class)
+                .value(response -> {
+                    assert response.getSaldo().equals(expectedBalance);
+                });
+    }
+
+    @Test
+    void test_getBalance_NotFound() {
+        // Given
+        String username = "nonexistent";
+
+        when(paymentService.getBalance(anyString()))
+                .thenReturn(Mono.error(new IllegalArgumentException("User not found")));
+
+        // When & Then
+        webTestClient.mutateWith(mockJwt()
+                        .authorities(new SimpleGrantedAuthority("SCOPE_payments.read")))
+                .get().uri("api/balance")
+                .header("Username",username)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    void test_createPayment_Success() {
+        String username = "1";
+        Long amount = 500L;
+        User user = new User(username, amount + 100);
+        PaymentRequest paymentRequest = new PaymentRequest();
+        paymentRequest.setTotalSum(amount);
+
+        when(paymentService.createPayment(anyString(), anyLong()))
+                .thenReturn(Mono.just(user));
+
+        when(userRepository.findByUsername(username))
+                .thenReturn(Mono.just(user));
+
+        webTestClient.mutateWith(mockJwt()
+                        .authorities(new SimpleGrantedAuthority("SCOPE_payments.write")))
+                .post()
+                .uri("/api/pay")
+                .header("Username", username)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(fromValue(paymentRequest))
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(MediaType.APPLICATION_JSON)
+                .expectBody(PaymentResponse.class)
+                .value(response -> {
+                    assert PaymentStatus.SUCCESS.equals(response.getStatus());
+                    assert "Успешное выполнение оплаты".equals(response.getDescription());
+                });
+    }
+}
