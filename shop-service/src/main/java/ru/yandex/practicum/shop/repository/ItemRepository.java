@@ -19,4 +19,8 @@ public interface ItemRepository extends ReactiveSortingRepository<Item, Long> {
     Mono<Long> countByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCase(String search, String search1);
 
     Mono<Item> findById(Long id);
+
+    Mono<Void> deleteAll();
+
+    Mono<Void> save(Item item);
 }
