@@ -17,7 +17,6 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@Profile("!test")
 public class DataInitializer {
 
     private final UserRepository userRepository;
