@@ -22,15 +22,15 @@ public class CacheService {
     private final ReactiveRedisTemplate<String, Item> redisTemplate;
 
     @Transactional(readOnly = true)
-    public Mono<Item> getItemById(String sessionId, Long id) {
+    public Mono<Item> getItemById(String username, Long id) {
         String keyCache = CACHE_PREFIX + id;
         return redisTemplate.opsForValue().get(keyCache)
-                .doOnSuccess(saldo -> log.info("Продукт есть в кеше id:{}, sessionId:{}", id, sessionId))
+                .doOnSuccess(saldo -> log.info("Продукт есть в кеше id:{}, sessionId:{}", id, username))
                 .switchIfEmpty(Mono.defer(() -> itemRepository.findById(id)
                         .flatMap(item -> redisTemplate.opsForValue()
                                 .set(keyCache, item, TTL)
                                 .doOnSuccess(ok ->
-                                        log.info("Продукт положили в кеш id:{}, sessionId:{}", id, sessionId))
+                                        log.info("Продукт положили в кеш id:{}, sessionId:{}", id, username))
                                 .thenReturn(item))));
     }
 }

@@ -28,23 +28,19 @@ public class OrderService {
     private final PaymentService paymentService;
 
     @Transactional
-    public Mono<OrderDto> createOrder(String sessionId) {
-        return cartService.getCartItems(sessionId)
+    public Mono<OrderDto> createOrder(String username) {
+        return cartService.getCartItems(username)
                 .flatMap(cartItems -> {
                     if (cartItems.isEmpty()) {
                         return Mono.error(new RuntimeException("Cart is empty"));
                     }
 
                     Long totalSum = getTotalSum(cartItems);
-//                    Long totalSum = cartItems.stream()
-//                            .mapToLong(item -> item.getPrice() * item.getCount())
-//                            .sum();
-
                     List<OrderItem> orderItems = cartItems.stream()
                             .map(this::toOrderItem)
                             .collect(Collectors.toList());
 
-                    return paymentService.createPayment(sessionId, totalSum)
+                    return paymentService.createPayment(username, totalSum)
                             .flatMap(paymentStatus -> {
                                 if (paymentStatus.equals(PaymentStatus.ERROR)) {
                                     return Mono.error(new IllegalStateException(
@@ -52,7 +48,7 @@ public class OrderService {
                                 }
 
                                 Order order = new Order();
-                                order.setSessionId(sessionId);
+                                order.setUsername(username);
                                 order.setItems(orderItems);
                                 order.setTotalSum(totalSum);
 
@@ -67,12 +63,12 @@ public class OrderService {
                                                     .thenReturn(savedOrder);
                                         })
                                         .map(savedOrder -> toDto(savedOrder, cartItems))
-                                        .flatMap(dto -> cartService.removeAllItems(sessionId)
+                                        .flatMap(dto -> cartService.removeAllItems(username)
                                                 .thenReturn(dto));
                             });
                 })
                 .doOnSuccess(orderDto -> log.info("Order created successfully: {}", orderDto.getId()))
-                .doOnError(error -> log.error("Failed to create order for session: {}", sessionId, error));
+                .doOnError(error -> log.error("Failed to create order for session: {}", username, error));
     }
 
     protected Long getTotalSum(List<ItemDto> cartItems) {
@@ -89,15 +85,15 @@ public class OrderService {
         return orderItem;
     }
 
-    public Mono<List<OrderDto>> getAllOrders(String sessionId) {
-        return orderRepository.findBySessionId(sessionId)
+    public Mono<List<OrderDto>> getAllOrders(String username) {
+        return orderRepository.findByUsername(username)
                 .flatMap(order -> getItems(order.getId())
                         .map(items -> toDto(order, items)))
                 .collectList();
     }
 
-    public Mono<OrderDto> getOrderById(String sessionId, Long id) {
-        return orderRepository.findByIdAndSessionId(id, sessionId)
+    public Mono<OrderDto> getOrderById(String username, Long id) {
+        return orderRepository.findByIdAndUsername(id, username)
                 .flatMap(order -> getItems(order.getId())
                         .map(items -> toDto(order, items)));
     }

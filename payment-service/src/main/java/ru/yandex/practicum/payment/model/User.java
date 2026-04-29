@@ -6,8 +6,6 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 
-import java.math.BigDecimal;
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -15,6 +13,6 @@ import java.math.BigDecimal;
 
 public class User {
     @Id
-    private String userId;
+    private String username;
     private Long saldo;
 }

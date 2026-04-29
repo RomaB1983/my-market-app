@@ -20,9 +20,9 @@ public class PaymentController implements PaymentApi {
     private final PaymentService paymentService;
 
     @Override
-    public Mono<ResponseEntity<BalanceResponse>> getBalance(String userId, ServerWebExchange exchange) {
-        log.info("Запрос на получение баланса. userId: {}", userId);
-        return paymentService.getBalance(userId)
+    public Mono<ResponseEntity<BalanceResponse>> getBalance(String username, ServerWebExchange exchange) {
+        log.info("Запрос на получение баланса. username: {}", username);
+        return paymentService.getBalance(username)
                 .map(saldo -> {
                     BalanceResponse balanceResponse = new BalanceResponse(saldo);
                     return ResponseEntity.ok(balanceResponse);
@@ -36,9 +36,9 @@ public class PaymentController implements PaymentApi {
     }
 
     @Override
-    public Mono<ResponseEntity<PaymentResponse>> createPayment(String userId, Mono<PaymentRequest> paymentRequest, ServerWebExchange exchange) {
+    public Mono<ResponseEntity<PaymentResponse>> createPayment(String username, Mono<PaymentRequest> paymentRequest, ServerWebExchange exchange) {
         return paymentRequest.flatMap(
-                request -> paymentService.createPayment(userId, request.getTotalSum())
+                request -> paymentService.createPayment(username, request.getTotalSum())
                         .map(v -> {
                             PaymentResponse body = new PaymentResponse();
                             body.setStatus(PaymentStatus.SUCCESS);
@@ -47,19 +47,19 @@ public class PaymentController implements PaymentApi {
                         })
                         .onErrorResume(IllegalArgumentException.class, e ->
                                 {
-                                    PaymentResponse response = genErrorResponse(e, userId);
+                                    PaymentResponse response = genErrorResponse(e, username);
                                     return Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND).body(response));
                                 }
                         )
                         .onErrorResume(IllegalStateException.class, e -> {
-                            PaymentResponse response = genErrorResponse(e, userId);
+                            PaymentResponse response = genErrorResponse(e, username);
                             return Mono.just(ResponseEntity.badRequest().body(response));
                         })
         );
     }
 
-    private PaymentResponse genErrorResponse(Exception e, String userId) {
-        log.error("Ошибка оплаты. userId:" + userId + " " + e.getMessage());
+    private PaymentResponse genErrorResponse(Exception e, String username) {
+        log.error("Ошибка оплаты. username:" + username + " " + e.getMessage());
         PaymentResponse body = new PaymentResponse();
         body.setStatus(PaymentStatus.ERROR);
         body.setDescription("Ошибка оплаты: " + e.getMessage());

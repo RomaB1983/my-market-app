@@ -19,7 +19,7 @@ paths:
       operationId: getBalance
       summary: Получить остаток по пользователю
       parameters:
-        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/Username'
       responses:
         '200':
           description: Успешный ответ
@@ -36,7 +36,7 @@ paths:
       operationId: createPayment
       summary: Оплата заказа
       parameters:
-        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/Username'
       requestBody:
         required: true
         content:
@@ -102,10 +102,11 @@ components:
           type: string
           description: Описание результата операции
   parameters:
-    UserId:
-      name: UserId
-      description: Уникальный идентификатор пользователя
+    Username:
+      name: Username
+      description: Уникальный логин пользователя
       in: header
       required: true
       schema:
         type: string
+ 

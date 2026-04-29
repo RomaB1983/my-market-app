@@ -8,6 +8,17 @@ services:
       - "6379:6379"
     restart: unless-stopped
 
+  authorization-server:
+    build:
+      context: ./authorization-server
+      dockerfile: Dockerfile
+    container_name: authorization-server
+    ports:
+      - "3000:3000"
+    environment:
+      - AUTHORIZATION-SERVER_ISSUER=http://authorization-server:3000
+    restart: unless-stopped
+
   payment-service:
     build:
       context: ./payment-service
@@ -18,8 +29,11 @@ services:
     environment:
       - SPRING_DATA_REDIS_HOST=redis
       - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://authorization-server:3000/oauth2/jwks
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER-URI=http://authorization-server:3000
     depends_on:
       - redis
+      - authorization-server
     restart: unless-stopped
 
   shop-service:
@@ -34,7 +48,12 @@ services:
       - SPRING_DATA_REDIS_PORT=6379
       - APP_PAYMENT_SERVICE_URL=http://payment-service:8081
 #      - APP_PAYMENT_SERVICE_URL=http://localhost:8081
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_SHOP-CLIENT_TOKEN-URI=http://authorization-server:3000/oauth2/token
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_SHOP-CLIENT_ISSUER-URI=http://authorization-server:3000
+#      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_AUTHORIZATION-SERVER_TOKEN-URI=http://authorization-server:3000/oauth2/token
+#      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_AUTHORIZATION-SERVER_ISSUER-URI=http://authorization-server:3000
     depends_on:
       - redis
       - payment-service
+      - authorization-server
     restart: unless-stopped

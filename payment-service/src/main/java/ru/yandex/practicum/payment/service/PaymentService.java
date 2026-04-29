@@ -20,41 +20,41 @@ public class PaymentService {
     private static final String CACHE_PREFIX = "user:";
     private static final Duration TTL = Duration.ofMinutes(4);
 
-    public Mono<Long> getBalance(String userId) {
-        String keyCache = CACHE_PREFIX + userId;
+    public Mono<Long> getBalance(String username) {
+        String keyCache = CACHE_PREFIX + username;
         return redisTemplate.opsForValue().get(keyCache)
                 .doOnSuccess(saldo ->
-                        log.info("Баланс есть в кеше для пользователя userId:{}, saldo:{}", userId, saldo))
+                        log.info("Баланс есть в кеше для пользователя username:{}, saldo:{}", username, saldo))
                 .switchIfEmpty(Mono.defer(() ->
-                        userRepository.findById(userId)
-                                .switchIfEmpty(Mono.defer(() -> createUser(userId)))
+                        userRepository.findByUsername(username)
+                                .switchIfEmpty(Mono.defer(() -> createUser(username)))
                                 .flatMap(user -> redisTemplate.opsForValue()
                                         .set(keyCache, user.getSaldo(), TTL)
                                         .doOnSuccess(ok ->
-                                                log.info("Баланс положили в кеш для пользователя userId:{}, saldo:{}", userId, user.getSaldo()))
+                                                log.info("Баланс положили в кеш для пользователя username:{}, saldo:{}", username, user.getSaldo()))
                                         .thenReturn(user.getSaldo()))
 
                 ));
     }
 
-    private Mono<User> createUser(String userId) {
-        log.info("Создаем нового пользователя. userId: {}", userId);
+    private Mono<User> createUser(String username) {
+        log.info("Создаем нового пользователя. username: {}", username);
         Long balance = BalanceGenerator.get();
-        return userRepository.insert(userId, balance)
-                .then(Mono.just(new User(userId, balance)));
+        return userRepository.insert(username, balance)
+                .then(Mono.just(new User(username, balance)));
     }
 
-    public Mono<User> createPayment(String userId, Long totalSum) {
-        return userRepository.findById(userId)
-                .switchIfEmpty(Mono.defer(() -> createUser(userId)))
+    public Mono<User> createPayment(String username, Long totalSum) {
+        return userRepository.findByUsername(username)
+                .switchIfEmpty(Mono.defer(() -> createUser(username)))
                 .flatMap(user -> {
                     if (user.getSaldo() > totalSum) {
                         user.setSaldo(user.getSaldo() - totalSum);
-                        log.info("Успешная оплата заказа. userId: {}, сумма оплаты: {}, баланс после оплаты: {}"
-                                , userId, totalSum, user.getSaldo());
+                        log.info("Успешная оплата заказа. username: {}, сумма оплаты: {}, баланс после оплаты: {}"
+                                , username, totalSum, user.getSaldo());
                         return userRepository.save(user)
                                 .flatMap(savedUser -> redisTemplate.opsForValue()
-                                        .delete(CACHE_PREFIX + userId)
+                                        .delete(CACHE_PREFIX + username)
                                         .thenReturn(savedUser));
                     } else {
                         log.warn("Недостаточно средств для оплаты: Баланс: {}, Сумма оплаты: {}", user.getSaldo(), totalSum);

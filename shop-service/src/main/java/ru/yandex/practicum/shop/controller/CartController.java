@@ -1,15 +1,18 @@
 package ru.yandex.practicum.shop.controller;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.result.view.Rendering;
-import org.springframework.web.server.WebSession;
 import reactor.core.publisher.Mono;
 import ru.yandex.practicum.shop.dto.Params;
 import ru.yandex.practicum.shop.service.CartService;
 import ru.yandex.practicum.shop.service.PaymentService;
 
+@Slf4j
 @Controller
 @RequiredArgsConstructor
 @RequestMapping("/cart")
@@ -20,19 +23,19 @@ public class CartController {
 
     @GetMapping("/items")
     public Mono<Rendering> getCartItems
-            (WebSession session,
+            (@AuthenticationPrincipal UserDetails user,
              @RequestParam(required = false) String paymentError) {
-        return cartService.getCartItems(session.getId())
+        return cartService.getCartItems(user.getUsername())
                 .flatMap(items -> {
                             long total = items.stream()
                                     .mapToLong(item -> item.getPrice() * item.getCount())
                                     .sum();
-                            return paymentService.getUserBalance(session.getId())
+                            return paymentService.getUserBalance(user.getUsername())
                                     .map(balance ->
                                             Rendering.view("cart")
                                                     .modelAttribute("items", items)
                                                     .modelAttribute("total", total)
-                                                    .modelAttribute("isOkBalance", balance>=total)
+                                                    .modelAttribute("isOkBalance", balance >= total)
                                                     .modelAttribute("saldo", balance)
                                                     .modelAttribute("paymentError", paymentError)
                                                     .build());
@@ -41,8 +44,8 @@ public class CartController {
     }
 
     @PostMapping("/items")
-    public Mono<String> updateCartItem(WebSession session, @ModelAttribute Params params) {
-        return cartService.updateQuantity(session.getId(), params.getId(), params.getAction())
+    public Mono<String> updateCartItem(@AuthenticationPrincipal UserDetails user, @ModelAttribute Params params) {
+        return cartService.updateQuantity(user.getUsername(), params.getId(), params.getAction())
                 .thenReturn("redirect:/cart/items");
     }
 }

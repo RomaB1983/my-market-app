@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS items (
 CREATE TABLE IF NOT EXISTS orders (
     id BIGSERIAL PRIMARY KEY,
     total_sum BIGINT NOT NULL, -- итоговая сумма заказа в копейках/центах
-     session_id  VARCHAR(255)
+     username  VARCHAR(255)
 );
 
 -- Индекс для ускорения поиска по id заказа (обычно уже есть как PRIMARY KEY)
@@ -51,7 +51,7 @@ CREATE INDEX IF NOT EXISTS idx_items_description ON items(description);
 
 CREATE TABLE IF NOT EXISTS cart_items (
     id BIGSERIAL PRIMARY KEY,
-    session_id  VARCHAR(255),
+    username  VARCHAR(255),
     quantity    INTEGER,
     item_id     BIGINT
 );
@@ -59,4 +59,16 @@ insert into items(price,description,img_path,title) values(1,'Мяч','/images/1
 insert into items(price,description,img_path,title) values(20,'Мяч1','/images/2.jpg','мяч1');
 insert into items(price,description,img_path,title) values(3,'Мяч2','_','мяч2');
 insert into items(price,description,img_path,title) values(40,'Мяч3','_','мяч3');
+
+CREATE TABLE IF NOT EXISTS users (
+    id BIGSERIAL PRIMARY KEY,
+    username  VARCHAR(255),
+    password    VARCHAR(255),
+    role     VARCHAR(255)
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+
+
+
 
